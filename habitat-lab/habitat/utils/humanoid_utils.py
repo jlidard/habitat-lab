@@ -10,6 +10,7 @@ import pickle as pkl
 import magnum as mn
 import numpy as np
 import pybullet as p
+import pybullet_data
 
 smplx_body_joint_names = [
     "pelvis",

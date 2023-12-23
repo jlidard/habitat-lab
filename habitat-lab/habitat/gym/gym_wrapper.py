@@ -284,10 +284,17 @@ class HabGymWrapper(gym.Wrapper):
         if self._save_orig_obs:
             self.orig_obs = obs
 
-        observation = {
-            "observation": OrderedDict(
-                [(k, obs[k]) for k in self._gym_obs_keys]
+        new_keys = self._gym_obs_keys #+ ["test"]
+        justin_key = "justin/aug_obs"
+        new_dict = OrderedDict(
+                [(k, obs[k]) for k in new_keys]
             )
+        if justin_key in obs.keys():
+            new_dict[justin_key] = obs[justin_key]
+        else:
+            new_dict[justin_key] = [0, 0]
+        observation = {
+            "observation": new_dict
         }
 
         if len(self._gym_goal_keys) > 0:

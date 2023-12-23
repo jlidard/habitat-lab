@@ -17,6 +17,7 @@ from habitat.sims.habitat_simulator.actions import HabitatSimActions
 from habitat.tasks.rearrange.actions.articulated_agent_action import (
     ArticulatedAgentAction,
 )
+from habitat_sim.physics import JointMotorSettings, MotionType
 
 # flake8: noqa
 # These actions need to be imported since there is a Python evaluation
@@ -797,6 +798,40 @@ class HumanoidJointAction(ArticulatedAgentAction):
         self._sim: RearrangeSim = sim
         self.num_joints = self._config.num_joints
 
+        self.show_cylinder = False
+
+        if self.show_cylinder:
+            template_mgr = self._sim.get_object_template_manager()
+            self.rom = self._sim.get_rigid_object_manager()
+            template_mgr.load_configs(
+                str("/home/jlidard/habitat-lab/import_objects")
+            )
+            self.handle = template_mgr.get_template_handles("import_objects/cylinder_1")[0]
+            self.cylinder = self.rom.add_object_by_template_handle(self.handle)
+            self.cylinder.motion_type = MotionType.KINEMATIC
+            self.loaded_receps = False
+            self.handle = \
+            template_mgr.get_template_handles("import_objects/sphere")[0]
+
+
+        # self.cylinder.scale = np.array([5, 5, 5])
+
+        # self.update_cylinder_pos()
+
+
+
+        # import git
+        # import os
+        # repo = git.Repo(".", search_parent_directories=True)
+        # dir_path = repo.working_tree_dir
+        # data_path = os.path.join(dir_path, "data")
+        # template_mgr.load_configs(str(os.path.join(data_path, "objects")))
+        # cheezit_template_handle = template_mgr.get_template_handles(
+        #     "data/objects/cheezit"
+        # )[0]
+        # rom.add_object_by_template_handle(cheezit_template_handle)
+
+
     def reset(self, *args, **kwargs):
         super().reset()
 
@@ -815,6 +850,30 @@ class HumanoidJointAction(ArticulatedAgentAction):
                 )
             }
         )
+
+    def update_cylinder_pos(self, zval=2):
+        if self.show_cylinder:
+            human_pos = list(self.cur_articulated_agent.base_pos)
+            human_pos = np.array(human_pos)
+            human_pos[0] += 0
+            human_pos[1] += 0
+            # human_pos[-1] = zval
+            human_pos_vec = mn.Vector3(*human_pos)
+            self.cylinder.translation = human_pos_vec
+            # if not self.loaded_receps:
+            #     targets = self._sim.get_targets()
+            #     for pos in targets[1]:
+            #         pos = list(pos)
+            #         obj = self.rom.add_object_by_template_handle(self.handle)
+            #         obj.motion_type = MotionType.KINEMATIC
+            #         pos[-2] += 0.5
+            #         pos = mn.Vector3(*pos)
+            #         obj.translation = pos
+            #     self.loaded_receps = True
+
+    def get_human_position(self):
+        pos = self._sim.agents[0].get_state().position
+        return pos
 
     def step(self, *args, **kwargs):
         r"""
@@ -856,3 +915,5 @@ class HumanoidJointAction(ArticulatedAgentAction):
                 self.cur_articulated_agent.set_joint_transform(
                     new_joints, new_transform_offset, new_transform_base
                 )
+
+        self.update_cylinder_pos()

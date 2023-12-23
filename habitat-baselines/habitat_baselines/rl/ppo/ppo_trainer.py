@@ -133,7 +133,7 @@ class PPOTrainer(BaseRLTrainer):
             **kwargs,
         )
 
-    def _init_envs(self, config=None, is_eval: bool = False):
+    def _init_envs(self, config=None, is_eval: bool = False, force_same_scene=False):
         if config is None:
             config = self.config
 
@@ -148,6 +148,7 @@ class PPOTrainer(BaseRLTrainer):
                 not torch.distributed.is_initialized()
                 or torch.distributed.get_rank() == 0
             ),
+            force_same_scene=force_same_scene
         )
 
         self._env_spec = EnvironmentSpec(
@@ -871,7 +872,8 @@ class PPOTrainer(BaseRLTrainer):
         if config.habitat_baselines.verbose:
             logger.info(f"env config: {OmegaConf.to_yaml(config)}")
 
-        self._init_envs(config, is_eval=True)
+        force_same_scene = True
+        self._init_envs(config, is_eval=True, force_same_scene=force_same_scene)
 
         self._agent = self._create_agent(None)
         if (

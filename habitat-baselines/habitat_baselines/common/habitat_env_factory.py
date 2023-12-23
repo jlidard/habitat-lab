@@ -22,6 +22,7 @@ class HabitatVectorEnvFactory(VectorEnvFactory):
         workers_ignore_signals: bool = False,
         enforce_scenes_greater_eq_environments: bool = False,
         is_first_rank: bool = True,
+        force_same_scene = False,
     ) -> VectorEnv:
         r"""Create VectorEnv object with specified config and env class type.
         To allow better performance, dataset are split into small ones for
@@ -43,7 +44,11 @@ class HabitatVectorEnvFactory(VectorEnvFactory):
                 "No scenes to load, multiple process logic relies on being able to split scenes uniquely between processes"
             )
 
+
         random.shuffle(scenes)
+        preferred = '102816756'
+        if force_same_scene:
+            scenes = [scenes[0] for _ in scenes]
 
         scene_splits: List[List[str]] = [[] for _ in range(num_environments)]
         if len(scenes) < num_environments:
@@ -72,7 +77,8 @@ class HabitatVectorEnvFactory(VectorEnvFactory):
             proc_config = config.copy()
             with read_write(proc_config):
                 task_config = proc_config.habitat
-                task_config.seed = task_config.seed + env_index
+                if not force_same_scene:
+                    task_config.seed = task_config.seed + env_index
                 remove_measure_names = []
                 if not is_first_rank:
                     # Filter out non rank0_measure from the task config if we are not on rank0.

@@ -34,6 +34,26 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
         super().__init__(*args, task=task, **kwargs)
         self.nav_mode = None
         self.simple_backward = False
+        self.path_points = {}
+        self.base_pos = {}
+        self.target_object_locations = []
+        self.vel_safety_magnitude = 10
+        self.human_safety_radius = 2.0  # for planning, getting unsafe
+        self.human_safety_radius_fail = 1.0  # no violations allowed, fail
+        self.intent = 0
+        self.coord_nav = None
+        self.current_ep_info = False
+        self.both_pos = None
+        self.num_intent = 1
+
+    def reset(self, *args, **kwargs):
+        super().reset(*args, **kwargs)
+        self.path_points = {}  # keeps track of the robot and human desired trajectories
+        self.base_pos = {}  # keeps track of current positions
+        self.refresh_intent()
+
+    def refresh_intent(self):
+        self.intent = np.random.choice(self.num_intent)
 
     @property
     def action_space(self):
@@ -49,7 +69,7 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
             }
         )
 
-    def _get_target_for_coord(self, obj_pos):
+    def _get_target_for_coord(self, obj_pos, is_human=True):
         """Get the targets by recording them in the dict"""
         precision = 0.25
         pos_key = np.around(obj_pos / precision, decimals=0) * precision
@@ -67,11 +87,185 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
             self._targets[pos_key] = start_pos
         else:
             start_pos = self._targets[pos_key]
-        if self.motion_type == "human_joints":
+        if self.motion_type == "human_joints" and is_human:
             self.humanoid_controller.reset(
                 self.cur_articulated_agent.base_transformation
             )
         return (start_pos, np.array(obj_pos))
+
+
+    def get_position_goal_stats(self, agent_index, kwargs, intent=None):
+
+        if intent is None:
+            intent = self.intent
+
+        nav_to_target_coord = kwargs.get(
+            self._action_arg_prefix + "oracle_nav_coord_action",
+            self._action_arg_prefix + "oracle_nav_human_action",
+        )
+
+        self._agent_index = agent_index
+
+        # overwrite oracle target coord
+        nav_to_target_coord = self.target_object_locations[intent]
+
+        final_nav_targ, obj_targ_pos = self._get_target_for_coord(
+            nav_to_target_coord, is_human=(agent_index == 1)
+        )
+
+        base_T = self.cur_articulated_agent.base_transformation
+        curr_path_points = self._path_to_point(final_nav_targ)
+        robot_pos = np.array(self.cur_articulated_agent.base_pos)
+
+        if len(curr_path_points) == 1:
+            curr_path_points += curr_path_points
+        cur_nav_targ = curr_path_points[1]
+        forward = np.array([1.0, 0, 0])
+        robot_forward = np.array(base_T.transform_vector(forward))
+
+        # Compute relative target.
+        rel_targ = cur_nav_targ - robot_pos
+
+        # Compute heading angle (2D calculation)
+        robot_forward = robot_forward[[0, 2]]
+        rel_targ = rel_targ[[0, 2]]
+        rel_pos = (obj_targ_pos - robot_pos)[[0, 2]]
+
+        angle_to_target = get_angle(robot_forward, rel_targ)
+        angle_to_obj = get_angle(robot_forward, rel_pos)
+
+        dist_to_final_nav_targ = np.linalg.norm(
+            (final_nav_targ - robot_pos)[[0, 2]]
+        )
+
+        at_goal = (
+                      dist_to_final_nav_targ < self._config.dist_thresh
+                      and angle_to_obj < self._config.turn_thresh
+                  ) or dist_to_final_nav_targ < self._config.dist_thresh / 10.0
+
+        ret_dict = {
+            "robot_pos": robot_pos,
+            "curr_path_points": curr_path_points,
+            "rel_targ": rel_targ,
+            "dist_to_final_nav_targ": dist_to_final_nav_targ,
+            "angle_to_obj": angle_to_obj,
+            "at_goal": at_goal,
+            "rel_pos": rel_pos,
+            "robot_forward": robot_forward,
+            "angle_to_target": angle_to_target
+        }
+
+        self._agent_index = 1
+
+        return ret_dict
+
+    def spot_get_vel_point_goal(self, kwargs, intent=None):
+        '''
+        Computes a velocity to navigate the spot agent to the human's goal.
+        If the human is already at the goal, doesn't run into the human. If
+        the human is coming towards us, walk away from their relative heading.
+        '''
+
+        if intent is None:
+            intent = self.intent
+
+        spot_stats = self.get_position_goal_stats(agent_index=0, kwargs=kwargs, intent=intent)
+        human_stats = self.get_position_goal_stats(agent_index=1, kwargs=kwargs, intent=intent)
+
+        self._agent_index = 0
+
+        pos = spot_stats["robot_pos"]
+        at_goal = spot_stats["at_goal"]
+        dist_to_final_nav_targ = spot_stats["dist_to_final_nav_targ"]
+        rel_pos = spot_stats["rel_pos"]
+        rel_targ = spot_stats["rel_targ"]
+        robot_forward = spot_stats["robot_forward"]
+        angle_to_target = spot_stats["angle_to_target"]
+
+        pos_hum = human_stats["robot_pos"]
+        at_goal_hum = human_stats["at_goal"]
+        dist_to_final_nav_targ_hum = human_stats["dist_to_final_nav_targ"]
+        rel_pos_hum = human_stats["rel_pos"]
+        rel_targ_hum = human_stats["rel_targ"]
+        robot_forward_hum = human_stats["robot_forward"]
+        angle_to_target_hum = human_stats["angle_to_target"]
+
+        self.both_pos = [pos, pos_hum]
+
+        rel_disp_human = pos_hum - pos
+        rel_disp_human_xy = rel_disp_human[:2]
+        rel_dist_human = np.linalg.norm(rel_disp_human_xy)
+        pos_xy_unit_vector = rel_disp_human_xy / rel_dist_human
+        vel_correction = - self.vel_safety_magnitude * (1/rel_dist_human) * pos_xy_unit_vector
+        if rel_dist_human >= self.human_safety_radius or True:
+            vel_correction = np.zeros_like(vel_correction)
+        else:
+            print(vel_correction)
+
+        if not at_goal:
+            # Actions are in spot reference frame
+
+            if rel_dist_human <= self.human_safety_radius:
+                base_T = self.cur_articulated_agent.base_transformation
+                backward = np.array([1.0, 0, 0])
+                robot_backward = np.array(
+                    base_T.transform_vector(backward)
+                )
+                robot_backward = robot_backward[[0, 2]]
+                angle_to_target = get_angle(robot_backward, rel_disp_human_xy)
+                if (
+                    self.simple_backward
+                    or angle_to_target < self._config.turn_thresh
+                ):
+                    # Move backwards the target
+                    vel = [-self._config.forward_velocity, 0]
+                else:
+                    # Robot's rear looks at the target waypoint.
+                    vel = OracleNavAction._compute_turn(
+                        rel_disp_human_xy,
+                        self._config.turn_velocity,
+                        robot_backward,
+                    )
+            elif dist_to_final_nav_targ < self._config.dist_thresh:
+                # Look at the object
+                vel = OracleNavAction._compute_turn(
+                    rel_pos,
+                    self._config.turn_velocity,
+                    robot_forward,
+                )
+            elif angle_to_target < self._config.turn_thresh:
+                # Move towards the target
+                vel = [self._config.forward_velocity, 0]
+            else:
+                # Look at the target waypoint.
+                vel = OracleNavAction._compute_turn(
+                    rel_targ,
+                    self._config.turn_velocity,
+                    robot_forward,
+                )
+        else:
+            vel = [0, 0]
+
+        self._agent_index = 1
+
+        return vel
+
+    def spot_get_all_intent_actions(self, kwargs):
+
+        all_intent_actions = []
+        for intent in range(self.num_intent):
+            action = self.spot_get_vel_point_goal(kwargs, intent=intent)
+            all_intent_actions.append(action)
+        all_intent_actions = np.stack(all_intent_actions, 0)
+        return all_intent_actions
+
+    def get_observation(self):
+        pos_robots = self.both_pos
+        pos_target_objects = self.target_object_locations
+        receps = [x.center() for x in self._sim.receptacles.values()]
+        receps = [np.array(r)[:2] for r in receps]
+        observation = np.concatenate(pos_robots+pos_target_objects+receps)
+        return observation
 
     def step(self, *args, **kwargs):
         self.skill_done = False
@@ -163,9 +357,23 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
                 return BaseVelAction.step(self, *args, **kwargs)
 
             elif self.motion_type == "human_joints":
+
+                spot_stats = self.get_position_goal_stats(agent_index=0,
+                                                          kwargs=kwargs)
+
+                pos = spot_stats["robot_pos"]
+                at_goal_spot = spot_stats["at_goal"]
+                rel_dist_spot = np.linalg.norm(robot_pos[:2] - pos[:2])
+                collision_risk = rel_dist_spot< self.human_safety_radius
+                at_goal_but_robot_blocking = (
+                    at_goal_spot and
+                    collision_risk
+                )  # prevent human running into the robot after successful nav
+
+
                 # Update the humanoid base
                 self.humanoid_controller.obj_transform_base = base_T
-                if not at_goal:
+                if not at_goal and not at_goal_but_robot_blocking:
                     if dist_to_final_nav_targ < self._config.dist_thresh:
                         # Look at the object
                         self.humanoid_controller.calculate_turn_pose(
@@ -191,7 +399,12 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
                     f"{self._action_arg_prefix}human_joints_trans"
                 ] = base_action
 
-                return HumanoidJointAction.step(self, *args, **kwargs)
+                HumanoidJointAction.step(self, *args, **kwargs)
+                actions = self.spot_get_all_intent_actions(kwargs)
+                pos = self.get_observation()
+                optimal_action_true_intent = actions[self.intent]
+                intent = self.intent
+                return pos, actions, optimal_action_true_intent, intent
             else:
                 raise ValueError(
                     "Unrecognized motion type for oracle nav action"
@@ -315,23 +528,49 @@ class OracleNavRandCoordAction(OracleNavCoordAction):  # type: ignore
             robot_pos[1] = human_pos[1]
         return step_taken
 
-    def _get_target_for_coord(self, obj_pos):
+    def _get_target_for_coord(self, obj_pos, is_human=True):
         start_pos = obj_pos
-        if self.motion_type == "human_joints":
+        if self.motion_type == "human_joints" and is_human:
             self.humanoid_controller.reset(
                 self.cur_articulated_agent.base_transformation
             )
         return (start_pos, np.array(obj_pos))
 
+    def update_receptacles(self):
+        rom = self._sim.get_rigid_object_manager()
+        self.rigid_handles = [l[0].split('.')[0] + "_:0000" for l in
+                             self._sim.ep_info.rigid_objs]
+
+        for i, handle in enumerate(self.rigid_handles):
+            obj = rom.get_object_by_handle(handle).translation
+            pos = np.array(list(obj))
+            coord_nav = self._sim.pathfinder.get_random_navigable_point_near(
+                pos,
+                radius=1.5,
+                island_index=self._sim.largest_island_idx,
+            )
+            self.target_object_locations.append(coord_nav)  # approx. location
+        self.num_intent = len(self.rigid_handles)
+
+    def update_coord_nav_with_human_intent(self):
+        self.coord_nav = self.target_object_locations[self.intent]
+
     def step(self, *args, **kwargs):
         max_tries = 10
         self.skill_done = False
+        random_point_mode = False
 
         if self.coord_nav is None:
-            self.coord_nav = self._sim.pathfinder.get_random_navigable_point(
-                max_tries,
-                island_index=self._sim.largest_island_idx,
-            )
+            if random_point_mode:
+                self.coord_nav = self._sim.pathfinder.get_random_navigable_point(
+                    max_tries,
+                    island_index=self._sim.largest_island_idx,
+                )
+            if not self.current_ep_info:
+                self.update_receptacles()
+                self.current_ep_info = True
+
+            self.update_coord_nav_with_human_intent()
 
         kwargs[
             self._action_arg_prefix + "oracle_nav_coord_action"

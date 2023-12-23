@@ -35,6 +35,11 @@ from habitat.utils import profiling_wrapper
 if TYPE_CHECKING:
     from omegaconf import DictConfig
 
+import os
+import time
+from datetime import datetime
+import pandas as pd
+
 
 class Env:
     r"""Fundamental environment class for :ref:`habitat`.
@@ -135,6 +140,50 @@ class Env:
         self._elapsed_steps = 0
         self._episode_start_time: Optional[float] = None
         self._episode_over = False
+
+
+        home = os.path.expanduser('~')
+        in_habitat_log_dir = 'habitat-lab/habitat-baselines/habitat_baselines/outputs'
+        date_string = datetime.today().strftime('%Y-%m-%d')
+        time_string = datetime.today().strftime('%H-%M-%S')
+
+        self.save_path = os.path.join(home, in_habitat_log_dir,
+                                      date_string, time_string)
+        os.makedirs(self.save_path, exist_ok=True)
+        self.observation_history = []
+        self.intent_history = []
+        self.action_history = []
+
+    def save_state_history(self):
+
+        should_save = self._elapsed_steps >= self._max_episode_steps
+        if not should_save:
+            return
+
+        all_obs = np.stack(self.observation_history)
+        all_actions = np.stack(self.action_history)
+        all_intent = np.stack(self.intent_history)
+        all_data = np.concatenate((all_obs, all_actions, all_intent[:, None]), axis=-1)
+        cols = [f"col_{c}" for c in range(all_data.shape[-1])]
+        data_dict = {c: all_data[:, i] for i,c in enumerate(cols)}
+        df = pd.DataFrame(data_dict)
+
+        nano_string = time.time_ns()
+        os.makedirs(os.path.join(self.save_path, "rollouts"), exist_ok=True)
+        save_path = os.path.join(self.save_path, "rollouts",
+                                 f"rollout_{nano_string}.csv")
+        df.to_csv(save_path)
+        self.reset_state_history()
+
+    def append_state_history(self, observation, action, intent):
+        self.observation_history.append(observation)
+        self.action_history.append(action)
+        self.intent_history.append(intent)
+
+    def reset_state_history(self):
+        self.observation_history = []
+        self.intent_history = []
+        self.action_history = []
 
     def _setup_episode_iterator(self):
         assert self._dataset is not None
@@ -319,6 +368,13 @@ class Env:
         )
 
         self._update_step_stats()
+
+        # Save the state history, return the optimal action
+        observation, action, true_action, intent = observations["justin/aug_obs"]
+        action = action.reshape(-1)
+        self.append_state_history(observation, action, intent)
+        self.save_state_history()
+        observations["justin/aug_obs"] = true_action
 
         return observations
 

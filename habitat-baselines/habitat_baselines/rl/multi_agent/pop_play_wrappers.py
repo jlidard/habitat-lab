@@ -197,6 +197,17 @@ class MultiPolicy(Policy):
                     deterministic,
                 )
             )
+
+        ###### justin safety override ##########
+        # rel_pos = observations["agent_1_other_agent_gps"]
+        # rel_dist = torch.norm(rel_pos)
+        # if rel_dist < 2:
+        #     compensate_vel = -2 * (rel_pos / rel_dist)
+        #     agent_actions[0].actions = compensate_vel
+        #     print("taking safety action")
+        agent_actions[0].actions = agent_obs["justin/aug_obs"].float()
+
+
         policy_info = _merge_list_dict(
             [ac.policy_info for ac in agent_actions]
         )

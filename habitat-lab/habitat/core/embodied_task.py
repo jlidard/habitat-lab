@@ -245,6 +245,7 @@ class EmbodiedTask:
         assert (
             self._physics_target_sps > 0
         ), "physics_target_sps must be positive"
+        self.refresh_intent_interval = 200
 
         self.measurements = Measurements(
             self._init_entities(
@@ -321,6 +322,12 @@ class EmbodiedTask:
             action_name in self.actions
         ), f"Can't find '{action_name}' action in {self.actions.keys()}."
         task_action = self.actions[action_name]
+
+        intent_refreshable = getattr(task_action, "refresh_intent", None)
+        if (intent_refreshable \
+            and self._cur_episode_step % self.refresh_intent_interval == 0):
+            task_action.refresh_intent()
+
         return task_action.step(
             **action["action_args"],
             task=self,
@@ -331,6 +338,7 @@ class EmbodiedTask:
         if "action_args" not in action or action["action_args"] is None:
             action["action_args"] = {}
         observations: Optional[Any] = None
+        any_ret = None
         if isinstance(action_name, tuple):  # there are multiple actions
             for a_name in action_name:
                 observations = self._step_single_action(
@@ -338,6 +346,8 @@ class EmbodiedTask:
                     action,
                     episode,
                 )
+                if observations is not None:
+                    any_ret = observations
         else:
             observations = self._step_single_action(
                 action_name, action, episode
@@ -347,6 +357,7 @@ class EmbodiedTask:
 
         if observations is None:
             observations = self._sim.step(None)
+        observations["justin/aug_obs"] = any_ret
 
         observations.update(
             self.sensor_suite.get_observations(

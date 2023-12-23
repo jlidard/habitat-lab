@@ -342,6 +342,7 @@ class HierarchicalPolicy(nn.Module, Policy):
                 cur_batch_idx=batch_ids,
             )
             actions[batch_ids] += action_data.actions
+            # print(actions)
 
             if self._has_ll_hidden_state:
                 # Update the LL hidden state.
@@ -380,6 +381,9 @@ class HierarchicalPolicy(nn.Module, Policy):
             use_action = actions
         else:
             use_action = hl_info.actions
+
+        # if any(actions[0] > 0):
+        #     print(actions)
 
         return PolicyActionData(
             take_actions=actions,

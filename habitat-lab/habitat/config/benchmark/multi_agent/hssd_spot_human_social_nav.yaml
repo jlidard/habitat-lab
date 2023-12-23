@@ -155,7 +155,7 @@ habitat:
       - agent_1_other_agent_gps
 
   environment:
-    max_episode_steps: 750
+    max_episode_steps: 50
 
   simulator:
     type: RearrangeSim-v0
