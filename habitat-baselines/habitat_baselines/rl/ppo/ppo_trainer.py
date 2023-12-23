@@ -888,18 +888,21 @@ class PPOTrainer(BaseRLTrainer):
 
         evaluator = hydra.utils.instantiate(config.habitat_baselines.evaluator)
         assert isinstance(evaluator, Evaluator)
-        evaluator.evaluate_agent(
-            self._agent,
-            self.envs,
-            self.config,
-            checkpoint_index,
-            step_id,
-            writer,
-            self.device,
-            self.obs_transforms,
-            self._env_spec,
-            self._rank0_keys,
-        )
+
+        n_times=10
+        for times in range(n_times):
+            evaluator.evaluate_agent(
+                self._agent,
+                self.envs,
+                self.config,
+                checkpoint_index,
+                step_id,
+                writer,
+                self.device,
+                self.obs_transforms,
+                self._env_spec,
+                self._rank0_keys,
+            )
 
         self.envs.close()
 
