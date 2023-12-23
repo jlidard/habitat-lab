@@ -112,8 +112,8 @@ class HabitatEvaluator(Evaluator):
                     f"Config specified {number_of_eval_episodes} eval episodes"
                     ", dataset only has {total_num_eps}."
                 )
-                logger.warn(f"Evaluating with {total_num_eps} instead.")
-                number_of_eval_episodes = total_num_eps
+                # logger.warn(f"Evaluating with {total_num_eps} instead.")
+                # number_of_eval_episodes = total_num_eps
             else:
                 assert evals_per_ep == 1
         assert (
