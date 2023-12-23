@@ -303,7 +303,7 @@ class HabitatEvaluator(Evaluator):
             )
 
         pbar.close()
-n        assert (
+        assert (
             len(ep_eval_count) >= number_of_eval_episodes
         ), f"Expected {number_of_eval_episodes} episodes, got {len(ep_eval_count)}."
 
