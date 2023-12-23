@@ -46,9 +46,10 @@ class HabitatVectorEnvFactory(VectorEnvFactory):
 
 
         random.shuffle(scenes)
-        preferred = '102816756.scene_instance'
         preferred = scenes[10]
         print(scenes)
+        print(preferred)
+        preferred = '106366386_174226770.scene_instance'
         force_same_scene = True
         if force_same_scene:
             scenes = [preferred for _ in scenes]
