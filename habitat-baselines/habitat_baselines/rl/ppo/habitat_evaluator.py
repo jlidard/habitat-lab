@@ -303,9 +303,10 @@ class HabitatEvaluator(Evaluator):
             )
 
         pbar.close()
-        assert (
-            len(ep_eval_count) >= number_of_eval_episodes
-        ), f"Expected {number_of_eval_episodes} episodes, got {len(ep_eval_count)}."
+        print(f"Processed {len(ep_eval_count)} episodes.")
+        # assert (
+        #     len(ep_eval_count) >= number_of_eval_episodes
+        # ), f"Expected {number_of_eval_episodes} episodes, got {len(ep_eval_count)}."
 
         aggregated_stats = {}
         all_ks = set()

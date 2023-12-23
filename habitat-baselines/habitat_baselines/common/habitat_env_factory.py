@@ -46,9 +46,12 @@ class HabitatVectorEnvFactory(VectorEnvFactory):
 
 
         random.shuffle(scenes)
-        preferred = '102816756'
+        preferred = '102816756.scene_instance'
+        preferred = scenes[10]
+        print(scenes)
+        force_same_scene = True
         if force_same_scene:
-            scenes = [scenes[0] for _ in scenes]
+            scenes = [preferred for _ in scenes]
 
         scene_splits: List[List[str]] = [[] for _ in range(num_environments)]
         if len(scenes) < num_environments:
@@ -79,6 +82,7 @@ class HabitatVectorEnvFactory(VectorEnvFactory):
                 task_config = proc_config.habitat
                 if not force_same_scene:
                     task_config.seed = task_config.seed + env_index
+                task_config.seed = task_config.seed + env_index
                 remove_measure_names = []
                 if not is_first_rank:
                     # Filter out non rank0_measure from the task config if we are not on rank0.

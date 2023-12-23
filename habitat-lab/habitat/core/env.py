@@ -144,8 +144,8 @@ class Env:
 
         home = os.path.expanduser('~')
         in_habitat_log_dir = 'habitat-lab/habitat-baselines/habitat_baselines/outputs'
-        date_string = datetime.today().strftime('%Y-%m-%d')
-        time_string = datetime.today().strftime('%H-%M-%S')
+        date_string = sorted(os.listdir(os.path.join(home, in_habitat_log_dir)))[-1]
+        time_string = sorted(os.listdir(os.path.join(home, in_habitat_log_dir, date_string)))[-1]
 
         self.save_path = os.path.join(home, in_habitat_log_dir,
                                       date_string, time_string)
@@ -157,8 +157,6 @@ class Env:
     def save_state_history(self):
 
         should_save = self._elapsed_steps >= self._max_episode_steps
-        if not should_save:
-            return
 
         all_obs = np.stack(self.observation_history)
         all_actions = np.stack(self.action_history)
@@ -288,6 +286,9 @@ class Env:
         :return: initial observations from the environment.
         """
         self._reset_stats()
+        if len(self.observation_history) > 0:
+            self.save_state_history()
+        self.reset_state_history()
 
         # Delete the shortest path cache of the current episode
         # Caching it for the next time we see this episode isn't really worth
@@ -300,6 +301,8 @@ class Env:
             and self._episode_from_iter_on_reset
         ):
             self._current_episode = next(self._episode_iterator)
+
+
 
         # This is always set to true after a reset that way
         # on the next reset an new episode is taken (if possible)
@@ -373,7 +376,6 @@ class Env:
         observation, action, true_action, intent = observations["justin/aug_obs"]
         action = action.reshape(-1)
         self.append_state_history(observation, action, intent)
-        self.save_state_history()
         observations["justin/aug_obs"] = true_action
 
         return observations

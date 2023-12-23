@@ -38,7 +38,7 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
         self.base_pos = {}
         self.target_object_locations = []
         self.vel_safety_magnitude = 10
-        self.human_safety_radius = 2.0  # for planning, getting unsafe
+        self.human_safety_radius = 1.5  # for planning, getting unsafe
         self.human_safety_radius_fail = 1.0  # no violations allowed, fail
         self.intent = 0
         self.coord_nav = None
