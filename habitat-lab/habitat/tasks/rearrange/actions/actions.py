@@ -798,7 +798,7 @@ class HumanoidJointAction(ArticulatedAgentAction):
         self._sim: RearrangeSim = sim
         self.num_joints = self._config.num_joints
 
-        self.show_cylinder = True
+        self.show_cylinder = False
 
         if self.show_cylinder:
             template_mgr = self._sim.get_object_template_manager()
