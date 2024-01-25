@@ -889,22 +889,20 @@ class PPOTrainer(BaseRLTrainer):
         evaluator = hydra.utils.instantiate(config.habitat_baselines.evaluator)
         assert isinstance(evaluator, Evaluator)
 
-        n_times=200
-        for times in range(n_times):
-            evaluator.evaluate_agent(
-                self._agent,
-                self.envs,
-                self.config,
-                checkpoint_index,
-                step_id,
-                writer,
-                self.device,
-                self.obs_transforms,
-                self._env_spec,
-                self._rank0_keys,
-            )
+        evaluator.evaluate_agent(
+            self._agent,
+            self.envs,
+            self.config,
+            checkpoint_index,
+            step_id,
+            writer,
+            self.device,
+            self.obs_transforms,
+            self._env_spec,
+            self._rank0_keys,
+        )
 
-            self.envs.close()
+        self.envs.close()
 
 
 def get_device(config: "DictConfig") -> torch.device:

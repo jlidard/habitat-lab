@@ -27,8 +27,11 @@ if TYPE_CHECKING:
     config_name="pointnav/ppo_pointnav_example",
 )
 def main(cfg: "DictConfig"):
+    nruns = 20
     cfg = patch_config(cfg)
-    execute_exp(cfg, "eval" if cfg.habitat_baselines.evaluate else "train")
+    for _ in range(nruns):
+        execute_exp(cfg, "eval" if cfg.habitat_baselines.evaluate else "train")
+
 
 
 def execute_exp(config: "DictConfig", run_type: str) -> None:
