@@ -904,7 +904,7 @@ class PPOTrainer(BaseRLTrainer):
                 self._rank0_keys,
             )
 
-        self.envs.close()
+            self.envs.close()
 
 
 def get_device(config: "DictConfig") -> torch.device:
