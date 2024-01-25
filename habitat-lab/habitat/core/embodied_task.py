@@ -245,7 +245,7 @@ class EmbodiedTask:
         assert (
             self._physics_target_sps > 0
         ), "physics_target_sps must be positive"
-        self.refresh_intent_interval = 200
+        self.refresh_intent_interval = 100
 
         self.measurements = Measurements(
             self._init_entities(

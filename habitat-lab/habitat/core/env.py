@@ -289,7 +289,6 @@ class Env:
         if len(self.observation_history) > 0:
             self.save_state_history()
         self.reset_state_history()
-
         # Delete the shortest path cache of the current episode
         # Caching it for the next time we see this episode isn't really worth
         # it

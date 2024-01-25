@@ -798,7 +798,7 @@ class HumanoidJointAction(ArticulatedAgentAction):
         self._sim: RearrangeSim = sim
         self.num_joints = self._config.num_joints
 
-        self.show_cylinder = False
+        self.show_cylinder = True
 
         if self.show_cylinder:
             template_mgr = self._sim.get_object_template_manager()
@@ -810,8 +810,8 @@ class HumanoidJointAction(ArticulatedAgentAction):
             self.cylinder = self.rom.add_object_by_template_handle(self.handle)
             self.cylinder.motion_type = MotionType.KINEMATIC
             self.loaded_receps = False
-            self.handle = \
-            template_mgr.get_template_handles("import_objects/sphere")[0]
+            # self.handle = \
+            # template_mgr.get_template_handles("import_objects/sphere")[0]
 
 
         # self.cylinder.scale = np.array([5, 5, 5])

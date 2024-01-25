@@ -38,8 +38,9 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
         self.base_pos = {}
         self.target_object_locations = []
         self.vel_safety_magnitude = 10
-        self.human_safety_radius = 1.5  # for planning, getting unsafe
-        self.human_safety_radius_fail = 1.0  # no violations allowed, fail
+        self.human_safety_radius = 1.0  # for planning, getting unsafe
+        self.human_safety_radius_fail = 0.5  # no violations allowed, fail
+        self.human_goal_thresh = 2.0  # human is close to enough to goal
         self.intent = 0
         self.coord_nav = None
         self.current_ep_info = False
@@ -141,7 +142,7 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
         at_goal = (
                       dist_to_final_nav_targ < self._config.dist_thresh
                       and angle_to_obj < self._config.turn_thresh
-                  ) or dist_to_final_nav_targ < self._config.dist_thresh / 10.0
+                  ) or dist_to_final_nav_targ < self.human_goal_thresh
 
         ret_dict = {
             "robot_pos": robot_pos,
@@ -213,12 +214,19 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
                 )
                 robot_backward = robot_backward[[0, 2]]
                 angle_to_target = get_angle(robot_backward, rel_disp_human_xy)
-                if (
-                    self.simple_backward
-                    or angle_to_target < self._config.turn_thresh
+                if dist_to_final_nav_targ_hum < self.human_safety_radius:
+                    # Robot's rear looks at the target waypoint.
+                    vel = OracleNavAction._compute_turn(
+                        rel_pos,
+                        self._config.turn_velocity,
+                        robot_forward,
+                    )
+                elif (
+                     angle_to_target < self._config.turn_thresh
                 ):
                     # Move backwards the target
                     vel = [-self._config.forward_velocity, 0]
+                    # vel = [0, 0]
                 else:
                     # Robot's rear looks at the target waypoint.
                     vel = OracleNavAction._compute_turn(
@@ -373,7 +381,7 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
 
                 # Update the humanoid base
                 self.humanoid_controller.obj_transform_base = base_T
-                if not at_goal and not at_goal_but_robot_blocking:
+                if not at_goal and not collision_risk:
                     if dist_to_final_nav_targ < self._config.dist_thresh:
                         # Look at the object
                         self.humanoid_controller.calculate_turn_pose(
