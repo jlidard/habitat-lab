@@ -889,7 +889,7 @@ class PPOTrainer(BaseRLTrainer):
         evaluator = hydra.utils.instantiate(config.habitat_baselines.evaluator)
         assert isinstance(evaluator, Evaluator)
 
-        n_times=200
+        n_times=10
         for times in range(n_times):
             evaluator.evaluate_agent(
                 self._agent,

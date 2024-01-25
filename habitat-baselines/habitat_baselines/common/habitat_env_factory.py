@@ -45,14 +45,14 @@ class HabitatVectorEnvFactory(VectorEnvFactory):
             )
 
 
-        random.shuffle(scenes)
-        preferred = scenes[10]
-        print(scenes)
-        print(preferred)
-        preferred = '106366386_174226770.scene_instance'
-        force_same_scene = True
-        if force_same_scene:
-            scenes = [preferred for _ in scenes]
+        # random.shuffle(scenes)
+        # preferred = scenes[10]
+        # print(scenes)
+        # print(preferred)
+        # preferred = '106366386_174226770.scene_instance'
+        # force_same_scene = True
+        # if force_same_scene:
+        #     scenes = [preferred for _ in scenes]
 
         scene_splits: List[List[str]] = [[] for _ in range(num_environments)]
         if len(scenes) < num_environments:
