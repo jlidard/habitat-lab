@@ -171,6 +171,7 @@ class Env:
         save_path = os.path.join(self.save_path, "rollouts",
                                  f"rollout_{nano_string}.csv")
         df.to_csv(save_path)
+
         self.reset_state_history()
 
     def append_state_history(self, observation, action, intent):

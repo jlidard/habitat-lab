@@ -271,7 +271,7 @@ class OracleNavCoordAction(OracleNavAction):  # type: ignore
         pos_robots = self.both_pos
         pos_target_objects = self.target_object_locations
         receps = [x.center() for x in self._sim.receptacles.values()]
-        receps = [np.array(r)[:2] for r in receps]
+        receps = [np.array([r[0], r[2]]) for r in receps]
         observation = np.concatenate(pos_robots+pos_target_objects+receps)
         return observation
 

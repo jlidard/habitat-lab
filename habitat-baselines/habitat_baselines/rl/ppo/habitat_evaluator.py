@@ -6,6 +6,8 @@ import numpy as np
 import torch
 import tqdm
 
+from PIL import Image
+
 from habitat import logger
 from habitat.tasks.rearrange.rearrange_sensors import GfxReplayMeasure
 from habitat.tasks.rearrange.utils import write_gfx_replay
@@ -122,6 +124,7 @@ class HabitatEvaluator(Evaluator):
 
         pbar = tqdm.tqdm(total=number_of_eval_episodes * evals_per_ep)
         agent.eval()
+        t = 0
         while (
             len(stats_episodes) < (number_of_eval_episodes * evals_per_ep)
             and envs.num_envs > 0
@@ -226,6 +229,15 @@ class HabitatEvaluator(Evaluator):
                     frame = observations_to_image(
                         {k: v[i] for k, v in batch.items()}, disp_info
                     )
+                    for k in ['agent_0_top_rgb', 'agent_0_third_rgb', 'agent_1_third_rgb']:
+                        nenvs = batch[k].shape[0]
+                        for j in range(nenvs):
+                            savedir = os.path.join('/home/jlidard/habitat-lab/habitat-baselines/habitat_baselines/captures', k, f"env{current_episodes_info[j].episode_id}")
+                            os.makedirs(savedir, exist_ok=True)
+                            arr = batch[k][j].cpu().numpy()
+                            im = Image.fromarray(arr)
+                            im.save(os.path.join(savedir, f'{t}.png'))
+                    t += 1
                     if not not_done_masks[i].any().item():
                         # The last frame corresponds to the first frame of the next episode
                         # but the info is correct. So we use a black frame
