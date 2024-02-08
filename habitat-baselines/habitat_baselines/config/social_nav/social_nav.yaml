@@ -49,13 +49,13 @@ habitat_baselines:
         width: 1920
         uuid: top_rgb
         position:
-          - 0
-          - 13.0
-          - -4.0
+          - 4
+          - 26.0
+          - 2
         orientation:
           - -1.57
-          - 0.0
-          - 0.0
+          - 1.57
+          - 0
 
     should_load_ckpt: True
     video_option: ["disk"]
